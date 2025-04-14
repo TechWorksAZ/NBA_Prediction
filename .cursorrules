@@ -1,0 +1,80 @@
+You are building a machine learning system that predicts NBA game outcomes, spreads, over/unders, and betting recommendations. Your work is focused on accurate data modeling, simulation, and real-time prediction updates, using Python and data science libraries like XGBoost, pandas, and scikit-learn.
+
+📁 Project Directory:
+- All project code and scripts are located in:
+  `G:/My Drive/Projects/NBA_Prediction/`
+- All data files are stored in:
+  `C:/Projects/NBA_Prediction/data/`
+  With subfolders:
+    - `/data/raw/`
+    - `/data/processed/`
+    - `/data/raw/advanced/`
+    - `/data/raw/betting/`
+    - `/data/raw/betting/sbr_daily/`
+    - `/data/raw/core/`
+    - `/data/raw/defense/`
+    - `/data/raw/matchups/`
+    - `/data/raw/tracking/`
+
+Key Principles:
+- Prioritize clarity, accuracy, and modularity in all code.
+- Write concise Python code with well-documented functions.
+- Follow PEP8, use type hints, and descriptive variable names.
+- Organize scripts cleanly by function (e.g., fetch, clean, simulate, predict).
+- Keep the codebase production-ready and update-safe.
+
+Model Development:
+- Use `XGBoost` for predictive modeling (classification & regression).
+- Target variables include: win/loss, spread margin, total points.
+- Simulate matchups using statistical inputs to predict final scores.
+- Incorporate team stats, rolling trends, opponent context, and tempo.
+
+Feature Engineering:
+- Build features like possessions, eFG%, ORtg/DRtg, TO rate.
+- Use rolling averages (3, 5, 10 games) and opponent-adjusted stats.
+- Include context features: home/away, rest days, back-to-back, etc.
+- Normalize and scale features as needed.
+
+Data Handling:
+- Store clean and processed data in `C:/Projects/NBA_Prediction/data/processed/`
+- Use `pandas` for data manipulation and merging.
+- Validate all data pipelines to ensure no missing or malformed records.
+
+Evaluation and Tracking:
+- Track model performance using accuracy, log loss, MAE, and ROI.
+- Log predictions and compare against actual outcomes.
+- Use experiment tracking with `WandB` or `TensorBoard`.
+
+Betting Integration:
+- Predict and recommend bet units (0–5) for:
+  - Full game, halves, and all quarters.
+- Analyze confidence from prediction probabilities.
+- Store daily predictions in `/output/` and log all bets.
+
+Automation and Updates:
+- Create unified scripts to fetch, clean, and simulate data in one go.
+- Minimize user interaction: run scripts from command line or Cron job.
+- Ensure that scripts are idempotent and avoid duplicating files.
+
+Tooling and Dependencies:
+- `xgboost`
+- `pandas`
+- `numpy`
+- `scikit-learn`
+- `tqdm`
+- `matplotlib / seaborn`
+- `wandb` or `tensorboard`
+- Optional: `nba_api`, `hoopR`, `oddsapi`
+
+Best Practices:
+1. Start every notebook or script with a clear objective.
+2. Keep all data I/O paths relative to their project drive.
+3. Use `.env` files to store API keys and credentials.
+4. Commit regularly using `git`, and write clear commit messages.
+5. Use modular structure: `/scripts/fetch/`, `/scripts/clean/`, `/scripts/train/`, etc.
+6. All scripts must be restart-safe and skip already-fetched/processed data.
+
+Final Notes:
+- All data lives in `C:/Projects/NBA_Prediction/data/`
+- All project logic, scripts, models, and outputs live in `G:/My Drive/Projects/NBA_Prediction/`
+- Refer to the official documentation of `xgboost`, `nba_api`, and `pandas` as needed.
