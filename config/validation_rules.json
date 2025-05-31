@@ -1,0 +1,41 @@
+{
+    "betting_data": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "home_team",
+            "away_team",
+            "home_score",
+            "away_score",
+            "full_game_spread_home",
+            "full_game_spread_away",
+            "full_game_moneyline_home",
+            "full_game_moneyline_away",
+            "full_game_total",
+            "full_game_over_odds",
+            "full_game_under_odds"
+        ],
+        "numeric_columns": [
+            "home_score",
+            "away_score",
+            "full_game_spread_home",
+            "full_game_spread_away",
+            "full_game_moneyline_home",
+            "full_game_moneyline_away",
+            "full_game_total",
+            "full_game_over_odds",
+            "full_game_under_odds",
+            "implied_prob",
+            "market_consensus",
+            "line_movement"
+        ],
+        "value_ranges": {
+            "implied_prob": {"min": 0.0, "max": 1.0},
+            "market_consensus": {"min": 0.0, "max": 1.0},
+            "line_movement": {"min": 0.0},
+            "full_game_total": {"min": 160.0, "max": 280.0}
+        },
+        "date_columns": ["game_date"],
+        "unique_keys": ["game_id", "game_date", "home_team", "away_team"]
+    }
+} 

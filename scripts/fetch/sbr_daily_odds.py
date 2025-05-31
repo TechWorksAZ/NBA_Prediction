@@ -11,7 +11,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from typing import Dict, List, Optional
 
+
 # Constants
+
 BASE_DIR = "G:/My Drive/Projects/NBA_Prediction"  # Updated to match your local path
 DATA_DIR = os.path.join("c:/projects/nba_prediction/data/raw/betting")
 DAILY_DIR = os.path.join("c:/projects/nba_prediction/data/raw/betting/sbr_daily")
@@ -113,28 +115,28 @@ class SBRScraper:
             print("⚠️ Failed to initialize Chrome driver")
             return None
             
-            data = {
-                'date': date_str,
+        data = {
+            'date': date_str,
             'games': {},  # Store game metadata here
-                'spreads': {},
-                'moneylines': {},
-                'totals': {}
-            }
+            'spreads': {},
+            'moneylines': {},
+            'totals': {}
+        }
         
         try:
             # Base URL for NBA odds
             base_url = "https://www.sportsbookreview.com/betting-odds/nba-basketball/"
-        
-        # Fetch data for each period and odds type
-        for period in GAME_PERIODS:
+            
+            # Fetch data for each period and odds type
+            for period in GAME_PERIODS:
                 for odds_type, odds_path in ODDS_TYPES.items():
                     print(f"📥 Fetching {period} - {odds_type} for {date_str}...")
                     
                     # Construct URL based on period and odds type
                     if period == 'full-game' and odds_type == 'spreads':
-                    url = f"{base_url}?date={date_str}"
-                else:
-                    url = f"{base_url}{odds_path}/{period}/?date={date_str}"
+                        url = f"{base_url}?date={date_str}"
+                    else:
+                        url = f"{base_url}{odds_path}/{period}/?date={date_str}"
 
                     # Load the page with retries
                     for attempt in range(MAX_RETRIES):
@@ -172,7 +174,7 @@ class SBRScraper:
                                                 
                                             sportsbook = odds_view.get('sportsbook')
                                             if not sportsbook:  # Skip if no sportsbook
-                        continue
+                                                continue
 
                                             current_line = odds_view.get('currentLine', {})
                                             if not current_line:  # Skip if no current line
@@ -214,7 +216,7 @@ class SBRScraper:
                                                     }
                                 except Exception as e:
                                     print(f"Error processing game: {str(e)}")
-                    continue
+                                    continue
 
                             print(f"✅ Successfully extracted data for {len(games)} games in {period} - {odds_type}")
                             break
@@ -223,13 +225,13 @@ class SBRScraper:
                             print(f"Attempt {attempt + 1} failed: {str(e)}")
                             if attempt < MAX_RETRIES - 1:
                                 time.sleep(RETRY_DELAY)
-                    continue
+                            continue
 
-        return data
-        
-    except Exception as e:
-        print(f"⚠️ Error fetching data for {date_str}: {str(e)}")
-        return None
+            return data
+            
+        except Exception as e:
+            print(f"⚠️ Error fetching data for {date_str}: {str(e)}")
+            return None
 
 def process_game_data(data: Dict, date_str: str) -> List[Dict]:
     """Process the game data and extract relevant information."""
@@ -340,8 +342,8 @@ def get_date_range(start_date: str, end_date: str) -> List[str]:
 
 def main():
     # Set date range
-    start_date = "2025-04-13"
-    end_date = "2025-04-13"  # Yesterday's date
+    start_date = "2025-04-15"
+    end_date = "2025-04-18"  # Yesterday's date
     date_list = get_date_range(start_date, end_date)
     
     print(f"\nFetching data from {start_date} to {end_date}")

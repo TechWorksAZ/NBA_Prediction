@@ -1,0 +1,204 @@
+{
+    "core_stats": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "team_id",
+            "team_abbreviation",
+            "matchup",
+            "wl",
+            "pts",
+            "opponent_points",
+            "plus_minus",
+            "is_home",
+            "opponent"
+        ],
+        "numeric_columns": [
+            "pts",
+            "opponent_points",
+            "plus_minus"
+        ],
+        "date_columns": [
+            "game_date"
+        ],
+        "rules": [
+            {
+                "name": "no_null_values",
+                "description": "No null values in required columns",
+                "severity": "error"
+            },
+            {
+                "name": "valid_dates",
+                "description": "All dates must be valid and within season range",
+                "severity": "error"
+            },
+            {
+                "name": "valid_team_ids",
+                "description": "All team IDs must be valid",
+                "severity": "error"
+            },
+            {
+                "name": "valid_scores",
+                "description": "Points and opponent points must be non-negative",
+                "severity": "error"
+            }
+        ]
+    },
+    "advanced_stats": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "team_id",
+            "team_abbreviation",
+            "offensive_rating",
+            "defensive_rating",
+            "net_rating",
+            "pace",
+            "true_shooting_pct"
+        ],
+        "numeric_columns": [
+            "offensive_rating",
+            "defensive_rating",
+            "net_rating",
+            "pace",
+            "true_shooting_pct"
+        ],
+        "date_columns": [
+            "game_date"
+        ],
+        "rules": [
+            {
+                "name": "no_null_values",
+                "description": "No null values in required columns",
+                "severity": "error"
+            },
+            {
+                "name": "valid_ratings",
+                "description": "Ratings must be within reasonable range",
+                "severity": "warning"
+            }
+        ]
+    },
+    "betting_data": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "team_id",
+            "team_abbreviation",
+            "spread",
+            "total",
+            "moneyline"
+        ],
+        "numeric_columns": [
+            "spread",
+            "total",
+            "moneyline"
+        ],
+        "date_columns": [
+            "game_date"
+        ],
+        "rules": [
+            {
+                "name": "no_null_values",
+                "description": "No null values in required columns",
+                "severity": "error"
+            },
+            {
+                "name": "valid_odds",
+                "description": "Odds must be within reasonable range",
+                "severity": "warning"
+            }
+        ]
+    },
+    "matchup_data": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "team_id",
+            "team_abbreviation",
+            "opponent_id",
+            "opponent_abbreviation",
+            "matchup_efficiency"
+        ],
+        "numeric_columns": [
+            "matchup_efficiency"
+        ],
+        "date_columns": [
+            "game_date"
+        ],
+        "rules": [
+            {
+                "name": "no_null_values",
+                "description": "No null values in required columns",
+                "severity": "error"
+            },
+            {
+                "name": "valid_matchups",
+                "description": "All matchups must be valid team combinations",
+                "severity": "error"
+            }
+        ]
+    },
+    "defense_data": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "team_id",
+            "team_abbreviation",
+            "defensive_rating",
+            "opponent_points",
+            "opponent_fg_pct"
+        ],
+        "numeric_columns": [
+            "defensive_rating",
+            "opponent_points",
+            "opponent_fg_pct"
+        ],
+        "date_columns": [
+            "game_date"
+        ],
+        "rules": [
+            {
+                "name": "no_null_values",
+                "description": "No null values in required columns",
+                "severity": "error"
+            },
+            {
+                "name": "valid_defensive_metrics",
+                "description": "Defensive metrics must be within reasonable range",
+                "severity": "warning"
+            }
+        ]
+    },
+    "tracking_data": {
+        "required_columns": [
+            "game_id",
+            "game_date",
+            "team_id",
+            "team_abbreviation",
+            "pace",
+            "distance_covered",
+            "speed"
+        ],
+        "numeric_columns": [
+            "pace",
+            "distance_covered",
+            "speed"
+        ],
+        "date_columns": [
+            "game_date"
+        ],
+        "rules": [
+            {
+                "name": "no_null_values",
+                "description": "No null values in required columns",
+                "severity": "error"
+            },
+            {
+                "name": "valid_tracking_metrics",
+                "description": "Tracking metrics must be within reasonable range",
+                "severity": "warning"
+            }
+        ]
+    }
+} 
