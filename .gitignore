@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -20,9 +21,14 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment
+.env
+.venv
 venv/
-env/
 ENV/
 
 # IDE
@@ -31,40 +37,22 @@ ENV/
 *.swp
 *.swo
 
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
-
-# Data files
+# Project specific
 data/raw/
 data/processed/
-*.csv
-*.json
-*.xlsx
-*.xls
-*.db
-*.sqlite3
+models/
+output/
+logs/
+wandb/
 
-# Environment variables
-.env
-.env.local
-.env.*.local
+# OS
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log
-logs/
-log/
+data_processing.log
 
-# Model files
-models/*.pkl
-models/*.h5
-models/*.joblib
-
-# Output files
-output/
-predictions/
-results/
-
-# OS specific
-.DS_Store
-Thumbs.db
+# Temporary files
+*.tmp
+*.temp
