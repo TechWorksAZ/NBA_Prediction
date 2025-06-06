@@ -34,6 +34,7 @@ from models.game_model import GameModelTrainer
 from models.total_model import TotalModelTrainer
 from models.period_model import PeriodModelTrainer
 from models.player_prop_model import PlayerPropModelTrainer
+from models.test_model_trainer import TestModelTrainer
 
 # Create logs directory if it doesn't exist
 base_dir = Path('C:/Projects/NBA_Prediction')
@@ -71,21 +72,22 @@ class ModelPipeline:
             'game': GameModelTrainer(use_wandb=use_wandb),
             'total': TotalModelTrainer(use_wandb=use_wandb),
             'period': PeriodModelTrainer(use_wandb=use_wandb),
-            'player_prop': PlayerPropModelTrainer(use_wandb=use_wandb)
+            'player_prop': PlayerPropModelTrainer(use_wandb=use_wandb),
+            'test': TestModelTrainer(use_wandb=use_wandb)
         }
         
         # Initialize wandb if enabled
         if use_wandb:
-            wandb.init(
-                project="nba-prediction",
-                config={
+                wandb.init(
+                    project="nba-prediction",
+                    config={
                     "base_dir": str(self.base_dir),
                     "data_dir": str(self.data_dir),
                     "features_dir": str(self.features_dir),
                     "models_dir": str(self.models_dir)
-                }
+        }
             )
-            
+    
     def load_features(self) -> Dict[str, pd.DataFrame]:
         """Load feature files from the processed data directory.
         
@@ -104,18 +106,18 @@ class ModelPipeline:
         }
         
         for name, file in feature_files.items():
-            features[name] = pd.read_csv(self.features_dir / file)
+                features[name] = pd.read_csv(self.features_dir / file)
             logging.info(f"Loaded {file}: {len(features[name])} rows")
-            
-            # Log feature info to wandb
-            if self.use_wandb:
-                wandb.log({
-                    f"{name}_rows": len(features[name]),
-                    f"{name}_columns": len(features[name].columns)
-                })
                 
-        return features
+            # Log feature info to wandb
+                if self.use_wandb:
+                    wandb.log({
+                        f"{name}_rows": len(features[name]),
+                        f"{name}_columns": len(features[name].columns)
+                    })
         
+        return features
+    
     def train_models(self, features: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
         """Train all models using the provided features.
         
@@ -134,9 +136,9 @@ class ModelPipeline:
             except Exception as e:
                 logging.error(f"Error training {name} model: {str(e)}")
                 raise
-                
-        return results
         
+        return results
+    
     def run(self):
         """Run the complete model training pipeline."""
         try:

@@ -47,11 +47,14 @@ class NBADataPipeline:
         self.features_dir = self.processed_dir / "features"
         self.merged_dir = self.processed_dir / "merged"
         self.output_dir = self.processed_dir
+        self.scripts_dir = self.base_dir / "scripts"
+        self.process_dir = self.scripts_dir / "process"
 
         self.features_dir.mkdir(parents=True, exist_ok=True)
         Path('logs').mkdir(exist_ok=True)
 
         self.column_mapping = self._load_column_mapping()
+        self.team_mappings = self._load_team_mappings()
 
     def _load_column_mapping(self) -> Dict[str, Any]:
         """Load the column mapping from FINAL_col_mapping.json."""
@@ -62,6 +65,21 @@ class NBADataPipeline:
         except Exception as e:
             logger.error(f"Error loading column mapping: {str(e)}")
             return {}
+
+    def _load_team_mappings(self) -> pd.DataFrame:
+        """Load team mappings from the process directory."""
+        try:
+            team_mappings_path = Path("data/processed/utilities/team_mappings.csv")
+            if not team_mappings_path.exists():
+                logger.error(f"Team mappings file not found at {team_mappings_path}!")
+                return pd.DataFrame()
+            
+            team_mappings = pd.read_csv(team_mappings_path)
+            logger.info(f"Loaded team mappings with {len(team_mappings)} teams")
+            return team_mappings
+        except Exception as e:
+            logger.error(f"Error loading team mappings: {str(e)}")
+            return pd.DataFrame()
 
     def _standardize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Standardize column names to a consistent format."""
@@ -548,9 +566,15 @@ class NBADataPipeline:
         logger.info("Validating games and odds data...")
         games = pd.read_csv(self.base_dir / "data" / "raw" / "core" / "games.csv")
         odds = pd.read_csv(self.base_dir / "data" / "raw" / "betting" / "nba_sbr_odds_2025.csv")
+        
+        # Standardize team names
+        games = self._standardize_team_names(games)
+        odds = self._standardize_team_names(odds)
+        
         games['GAME_DATE'] = pd.to_datetime(games['GAME_DATE'])
         odds['date'] = pd.to_datetime(odds['date'])
         odds['game_id'] = odds['date'].dt.strftime('%Y%m%d') + '_' + odds['away_team'] + '_' + odds['home_team']
+        
         games.to_csv(self.base_dir / "data" / "processed" / "validated_games.csv", index=False)
         odds.to_csv(self.base_dir / "data" / "processed" / "validated_odds.csv", index=False)
         logger.info(f"Saved validated games data with {len(games)} games")
@@ -662,6 +686,11 @@ class NBADataPipeline:
         defense_df = pd.read_csv("data/processed/merged/defense_pg_data.csv")
         advanced_df = pd.read_csv("data/processed/merged/advanced_pg_data.csv")
         
+        # Standardize team names in each dataframe
+        tracking_df = self._standardize_team_names(tracking_df)
+        defense_df = self._standardize_team_names(defense_df)
+        advanced_df = self._standardize_team_names(advanced_df)
+        
         # Log initial data shapes and columns
         logger.info(f"Initial shapes - Tracking: {tracking_df.shape}, Defense: {defense_df.shape}, Advanced: {advanced_df.shape}")
         logger.info(f"Tracking columns: {tracking_df.columns.tolist()}")
@@ -743,6 +772,8 @@ class NBADataPipeline:
         for file in files:
             df = self._read_and_standardize(self.merged_dir / file)
             if df is not None:
+                # Standardize team names
+                df = self._standardize_team_names(df)
                 dfs.append(df)
                 logger.info(f"Loaded {file} with shape {df.shape}")
                 logger.info(f"Columns in {file}: {df.columns.tolist()}")
@@ -863,6 +894,121 @@ class NBADataPipeline:
         for source, target in file_mappings.items():
             self._copy_and_rename_file(source, target)
 
+    def _standardize_team_names(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Standardize team names and add team IDs where needed."""
+        if self.team_mappings.empty:
+            logger.error("No team mappings available for standardization")
+            return df
+
+        # Create a copy to avoid modifying the original
+        df = df.copy()
+
+        # Define team name columns that need standardization
+        team_name_columns = [
+            'TEAM_NAME', 'HOME_TEAM', 'AWAY_TEAM',
+            'TEAM_CITY', 'HOME_TEAM_CITY', 'AWAY_TEAM_CITY',
+            'TEAM_SLUG', 'HOME_TEAM_SLUG', 'AWAY_TEAM_SLUG'
+        ]
+
+        # Create mapping dictionaries for different team name formats
+        full_name_map = dict(zip(self.team_mappings['FULL_TEAM_NAME'], self.team_mappings['team_id']))
+        city_map = dict(zip(self.team_mappings['team_city'], self.team_mappings['team_id']))
+        name_map = dict(zip(self.team_mappings['team_name'], self.team_mappings['team_id']))
+        abbrev_map = dict(zip(self.team_mappings['team_abbrev'], self.team_mappings['team_id']))
+
+        # Process each team name column
+        for col in team_name_columns:
+            if col in df.columns:
+                # Create corresponding ID column name
+                id_col = col.replace('TEAM', 'TEAM_ID').replace('_CITY', '_ID').replace('_SLUG', '_ID')
+                
+                # Map team names to IDs
+                if col in ['TEAM_NAME', 'HOME_TEAM', 'AWAY_TEAM']:
+                    df[id_col] = df[col].map(full_name_map)
+                elif col in ['TEAM_CITY', 'HOME_TEAM_CITY', 'AWAY_TEAM_CITY']:
+                    df[id_col] = df[col].map(city_map)
+                elif col in ['TEAM_SLUG', 'HOME_TEAM_SLUG', 'AWAY_TEAM_SLUG']:
+                    df[id_col] = df[col].map(name_map)
+                
+                # Standardize team names to full names
+                if col in ['TEAM_CITY', 'HOME_TEAM_CITY', 'AWAY_TEAM_CITY']:
+                    # Combine city and slug to create full team name
+                    if col == 'TEAM_CITY' and 'TEAM_SLUG' in df.columns:
+                        df['TEAM_NAME'] = df['TEAM_CITY'] + ' ' + df['TEAM_SLUG']
+                    elif col == 'HOME_TEAM_CITY' and 'HOME_TEAM_SLUG' in df.columns:
+                        df['HOME_TEAM'] = df['HOME_TEAM_CITY'] + ' ' + df['HOME_TEAM_SLUG']
+                    elif col == 'AWAY_TEAM_CITY' and 'AWAY_TEAM_SLUG' in df.columns:
+                        df['AWAY_TEAM'] = df['AWAY_TEAM_CITY'] + ' ' + df['AWAY_TEAM_SLUG']
+
+        # Log standardization results
+        for col in team_name_columns:
+            if col in df.columns:
+                id_col = col.replace('TEAM', 'TEAM_ID').replace('_CITY', '_ID').replace('_SLUG', '_ID')
+                if id_col in df.columns:
+                    mapped_count = df[id_col].notna().sum()
+                    total_count = len(df)
+                    logger.info(f"Standardized {col}: {mapped_count}/{total_count} rows mapped to IDs")
+
+        return df
+
+    def update_validated_games(self) -> None:
+        """Update validated_games.csv with team IDs and full team names."""
+        logger.info("Updating validated games with team IDs and full team names...")
+        
+        # Read the source files
+        games_df = pd.read_csv('data/processed/merged/validated_games.csv')
+        team_mappings = pd.read_csv('data/processed/utilities/team_mappings.csv')
+        
+        # Create mapping dictionaries
+        team_id_map = dict(zip(team_mappings['team_abbrev'], team_mappings['team_id']))
+        team_name_map = dict(zip(team_mappings['team_abbrev'], team_mappings['FULL_TEAM_NAME']))
+        
+        # Function to get team ID and name from various team columns
+        def get_team_info(row, prefix):
+            # Try each abbreviation column
+            for abbr_col in [f'{prefix}_TEAM_ABBR', f'{prefix}_TEAM_ABBR.1']:
+                if abbr_col in row and pd.notna(row[abbr_col]):
+                    abbr = row[abbr_col]
+                    return pd.Series({
+                        f'{prefix}_TEAM_ID': team_id_map.get(abbr),
+                        f'{prefix}_TEAM': team_name_map.get(abbr)
+                    })
+            return pd.Series({f'{prefix}_TEAM_ID': None, f'{prefix}_TEAM': None})
+        
+        # Get team IDs and names for both home and away teams
+        home_info = games_df.apply(lambda row: get_team_info(row, 'HOME'), axis=1)
+        away_info = games_df.apply(lambda row: get_team_info(row, 'AWAY'), axis=1)
+        
+        # Add the new columns to the dataframe
+        games_df['HOME_TEAM_ID'] = home_info['HOME_TEAM_ID']
+        games_df['HOME_TEAM'] = home_info['HOME_TEAM']
+        games_df['AWAY_TEAM_ID'] = away_info['AWAY_TEAM_ID']
+        games_df['AWAY_TEAM'] = away_info['AWAY_TEAM']
+        
+        # Define the desired column order
+        column_order = [
+            'GAME_ID', 'GAME_DATE', 'GAME_TIME', 'SEASON', 'SEASON_TYPE',
+            'SEASON_TYPE_ID', 'HOME_TEAM_ID', 'HOME_TEAM', 'AWAY_TEAM_ID', 'AWAY_TEAM'
+        ]
+        
+        # Add remaining columns that aren't in the specified order
+        remaining_cols = [col for col in games_df.columns if col not in column_order]
+        final_column_order = column_order + remaining_cols
+        
+        # Reorder columns
+        games_df = games_df[final_column_order]
+        
+        # Remove the GAME_CODE column if it exists
+        if 'GAME_CODE' in games_df.columns:
+            games_df = games_df.drop('GAME_CODE', axis=1)
+        
+        # Save the updated file
+        output_path = 'data/processed/validated_games.csv'
+        games_df.to_csv(output_path, index=False)
+        logger.info(f"Updated validated games saved to {output_path}")
+        logger.info(f"Processed {len(games_df)} games")
+        logger.info(f"Columns in output file: {list(games_df.columns)}")
+
     def run(self):
         """Run the complete data processing pipeline."""
         try:
@@ -878,11 +1024,62 @@ class NBADataPipeline:
             # Copy standalone files
             self.copy_standalone_files()
             
+            # Update validated games with team IDs
+            self.update_validated_games()
+            logger.info("Validated games updated with team IDs.")
+            
+            # Update validated odds
+            update_validated_odds()
+            logger.info("Validated odds GAME_IDs updated and standardized.")
+            
             logger.info("Data processing pipeline completed successfully!")
             
         except Exception as e:
             logger.error(f"Error in data processing pipeline: {str(e)}")
             raise
+
+def update_validated_odds():
+    """Update validated_odds.csv with standardized GAME_IDs and team IDs."""
+    data_dir = Path('C:/Projects/NBA_Prediction/data/processed')
+    odds_df = pd.read_csv(data_dir / 'validated_odds.csv')
+    games_df = pd.read_csv(data_dir / 'validated_games.csv')
+    team_mappings = pd.read_csv(data_dir / 'utilities/team_mappings.csv')
+    
+    # Create a mapping of team names to IDs
+    team_id_map = dict(zip(team_mappings['FULL_TEAM_NAME'], team_mappings['team_id'].astype(str).str.replace('.0', '')))
+    
+    # Add special case for LA Clippers
+    team_id_map['LA'] = team_id_map['LA Clippers']
+    
+    # Create a mapping of game identifiers to GAME_IDs
+    game_id_map = {}
+    for _, row in games_df.iterrows():
+        # Create a unique identifier using date and team abbreviations
+        game_key = f"{row['GAME_DATE']}_{row['HOME_TEAM_ABBR']}_{row['AWAY_TEAM_ABBR']}"
+        game_id_map[game_key] = row['GAME_ID']
+    
+    # Update GAME_IDs in odds_df
+    odds_df['GAME_ID'] = odds_df.apply(
+        lambda row: game_id_map.get(f"{row['GAME_DATE']}_{row['HOME_TEAM']}_{row['AWAY_TEAM']}", row['GAME_ID']),
+        axis=1
+    )
+    
+    # Remove trailing .0 from GAME_ID
+    odds_df['GAME_ID'] = odds_df['GAME_ID'].astype(str).str.replace('.0', '')
+    
+    # Add team IDs as strings (no trailing .0, no scientific notation)
+    odds_df['HOME_TEAM_ID'] = odds_df['HOME_TEAM'].map(team_id_map).astype(str)
+    odds_df['AWAY_TEAM_ID'] = odds_df['AWAY_TEAM'].map(team_id_map).astype(str)
+    
+    # Get all columns except GAME_ID and team columns
+    other_cols = [col for col in odds_df.columns if col not in ['GAME_ID', 'HOME_TEAM_ID', 'HOME_TEAM', 'AWAY_TEAM_ID', 'AWAY_TEAM']]
+    
+    # Reorder columns: GAME_ID first, then team columns, then the rest
+    new_cols = ['GAME_ID', 'HOME_TEAM_ID', 'HOME_TEAM', 'AWAY_TEAM_ID', 'AWAY_TEAM'] + other_cols
+    odds_df = odds_df[new_cols]
+    
+    # Save the updated file
+    odds_df.to_csv(data_dir / 'validated_odds.csv', index=False)
 
 if __name__ == "__main__":
     pipeline = NBADataPipeline()

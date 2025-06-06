@@ -132,7 +132,6 @@ class CoreDataMerger:
         # Rename columns to match our standard format
         column_mappings = {
             # Game Info
-            'GAME_CODE': 'GAME_CODE',
             'GAME_STATUS': 'GAME_STATUS',
             'GAME_STATUS_TEXT': 'GAME_STATUS_TEXT',
             'GAME_SEQUENCE': 'GAME_SEQUENCE',
@@ -186,7 +185,7 @@ class CoreDataMerger:
         # Select final columns in desired order
         final_columns = [
             # Game Identification
-            'GAME_ID', 'GAME_CODE', 'GAME_DATE', 'GAME_TIME', 'SEASON', 'SEASON_TYPE',
+            'GAME_ID', 'GAME_DATE', 'GAME_TIME', 'SEASON', 'SEASON_TYPE',
             'SEASON_TYPE_ID', 'SEASON_TYPE_DESCRIPTION',
             
             # Game Status
@@ -430,82 +429,88 @@ def process_core_data():
     """Process and clean the core NBA data."""
     logger.info("Processing core NBA data...")
     
-    # Read the NBA schedule data
-    schedule_path = Path("data/raw/core/nba_schedule.csv")
-    if not schedule_path.exists():
-        logger.error(f"Schedule file not found: {schedule_path}")
+    # Read the validated games data from merged folder
+    validated_games_path = Path("data/processed/merged/validated_games.csv")
+    if not validated_games_path.exists():
+        logger.error(f"Validated games file not found: {validated_games_path}")
         return
         
-    df = pd.read_csv(schedule_path)
+    # Read team mappings
+    team_mappings_path = Path("data/processed/utilities/team_mappings.csv")
+    if not team_mappings_path.exists():
+        logger.error(f"Team mappings file not found: {team_mappings_path}")
+        return
+        
+    df = pd.read_csv(validated_games_path)
+    team_mappings = pd.read_csv(team_mappings_path)
     
-    # Clean JSON-like columns
-    json_columns = [
-        'home_linescores',
-        'home_records',
-        'away_linescores',
-        'away_records',
-        'broadcast',
-        'highlights',
-        'notes_type',
-        'notes_headline',
-        'broadcast_market',
-        'broadcast_name'
+    # Create a mapping dictionary from abbreviation to full team name
+    team_name_map = dict(zip(team_mappings['team_abbrev'], team_mappings['FULL_TEAM_NAME']))
+    
+    # Remove GAME_CODE column if it exists
+    if 'GAME_CODE' in df.columns:
+        df = df.drop('GAME_CODE', axis=1)
+    
+    # Remove duplicate team abbreviation columns
+    if 'HOME_TEAM_ABBR.1' in df.columns:
+        df = df.drop('HOME_TEAM_ABBR.1', axis=1)
+    if 'AWAY_TEAM_ABBR.1' in df.columns:
+        df = df.drop('AWAY_TEAM_ABBR.1', axis=1)
+    
+    # Convert abbreviations to full team names
+    df['HOME_TEAM'] = df['HOME_TEAM_ABBR'].map(team_name_map)
+    df['AWAY_TEAM'] = df['AWAY_TEAM_ABBR'].map(team_name_map)
+    
+    # Remove unnecessary columns
+    columns_to_remove = [
+        'HOME_TEAM_ABBR', 'AWAY_TEAM_ABBR',
+        'HOME_TEAM_CITY', 'AWAY_TEAM_CITY',
+        'HOME_TEAM_SLUG', 'AWAY_TEAM_SLUG'
     ]
+    df = df.drop(columns=[col for col in columns_to_remove if col in df.columns])
     
-    for col in json_columns:
-        if col in df.columns:
-            logger.info(f"Cleaning column: {col}")
-            df[col] = df[col].apply(clean_json_column)
-    
-    # Rename columns to match our standard format
-    column_mapping = {
-        'id': 'GAME_ID',
-        'date': 'GAME_DATE',
-        'time_valid': 'GAME_TIME',
-        'neutral_site': 'NEUTRAL_SITE',
-        'conference_competition': 'CONFERENCE_GAME',
-        'play_by_play_available': 'PBP_AVAILABLE',
-        'recent': 'RECENT_GAME',
-        'venue_full_name': 'VENUE_NAME',
-        'venue_address_city': 'VENUE_CITY',
-        'venue_indoor': 'VENUE_INDOOR',
-        'format_regulation_periods': 'REGULATION_PERIODS',
-        'home_id': 'HOME_TEAM_ID',
-        'home_name': 'HOME_TEAM_NAME',
-        'home_abbreviation': 'HOME_TEAM_ABBR',
-        'home_score': 'HOME_SCORE',
-        'home_winner': 'HOME_WINNER',
-        'away_id': 'AWAY_TEAM_ID',
-        'away_name': 'AWAY_TEAM_NAME',
-        'away_abbreviation': 'AWAY_TEAM_ABBR',
-        'away_score': 'AWAY_SCORE',
-        'away_winner': 'AWAY_WINNER'
-    }
-    
-    df = df.rename(columns=column_mapping)
-    
-    # Select and order columns
-    columns = [
+    # Define the desired column order
+    column_order = [
+        # Game Identification
         'GAME_ID', 'GAME_DATE', 'GAME_TIME', 'SEASON', 'SEASON_TYPE',
-        'GAME_STATUS', 'GAME_STATE', 'GAME_COMPLETED', 'GAME_DESCRIPTION',
-        'GAME_DETAIL', 'HOME_TEAM_ID', 'HOME_TEAM_ABBR', 'HOME_TEAM_NAME',
-        'HOME_SCORE', 'HOME_WINNER', 'HOME_LINESCORES', 'HOME_RECORDS',
-        'AWAY_TEAM_ID', 'AWAY_TEAM_ABBR', 'AWAY_TEAM_NAME', 'AWAY_SCORE',
-        'AWAY_WINNER', 'AWAY_LINESCORES', 'AWAY_RECORDS', 'MATCHUP',
-        'CONFERENCE_GAME', 'NEUTRAL_SITE', 'REGULATION_PERIODS',
-        'VENUE_NAME', 'VENUE_CITY', 'VENUE_STATE', 'VENUE_INDOOR',
-        'ATTENDANCE', 'PBP_AVAILABLE', 'RECENT_GAME'
+        'SEASON_TYPE_ID', 'SEASON_TYPE_DESCRIPTION',
+        
+        # Game Status
+        'GAME_STATUS', 'GAME_STATUS_TEXT', 'GAME_SEQUENCE', 'POSTPONED_STATUS',
+        'GAME_LABEL', 'GAME_SUB_LABEL', 'SERIES_TEXT', 'SERIES_GAME_NUMBER',
+        'IF_NECESSARY',
+        
+        # Date Info
+        'DAY', 'MONTH_NUM', 'WEEK_NUMBER', 'WEEK_NAME',
+        
+        # Home Team Info
+        'HOME_TEAM_ID', 'HOME_TEAM', 'HOME_TEAM_WINS', 'HOME_TEAM_LOSSES',
+        'HOME_SCORE', 'HOME_TEAM_SEED',
+        
+        # Away Team Info
+        'AWAY_TEAM_ID', 'AWAY_TEAM', 'AWAY_TEAM_WINS', 'AWAY_TEAM_LOSSES',
+        'AWAY_SCORE', 'AWAY_TEAM_SEED',
+        
+        # Game Details
+        'MATCHUP', 'NEUTRAL_SITE', 'GAME_SUBTYPE', 'BRANCH_LINK',
+        
+        # Venue Info
+        'VENUE_NAME', 'VENUE_CITY', 'VENUE_STATE'
     ]
     
-    # Keep only the columns we want
-    df = df[[col for col in columns if col in df.columns]]
+    # Keep only columns that exist in the dataframe
+    column_order = [col for col in column_order if col in df.columns]
     
-    # Save the cleaned data
+    # Reorder columns
+    df = df[column_order]
+    
+    # Save to processed directory
     output_path = Path("data/processed/validated_games.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
-    logger.info(f"Saved cleaned games data to {output_path}")
+    logger.info(f"Saved processed games data to {output_path}")
     logger.info(f"Processed {len(df)} games")
+    logger.info(f"Columns in processed games data: {list(df.columns)}")
 
 def main():
     """Main function to merge core data."""

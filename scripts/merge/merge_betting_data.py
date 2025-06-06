@@ -16,9 +16,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class BettingDataMerger:
-    def __init__(self, raw_dir: str = "data/raw", processed_dir: str = "data/processed"):
-        self.raw_dir = Path(raw_dir)
-        self.processed_dir = Path(processed_dir)
+    def __init__(self, base_dir: str = "C:/Projects/NBA_Prediction"):
+        self.base_dir = Path(base_dir)
+        self.raw_dir = self.base_dir / "data" / "raw"
+        self.processed_dir = self.base_dir / "data" / "processed"
+        self.scripts_dir = self.base_dir / "scripts"
+        self.process_dir = self.scripts_dir / "process"
+        self.team_mappings = self._load_team_mappings()
+        
+    def _load_team_mappings(self) -> pd.DataFrame:
+        """Load team mappings from the process directory."""
+        try:
+            team_mappings_path = Path("data/processed/utilities/team_mappings.csv")
+            if not team_mappings_path.exists():
+                logger.error(f"Team mappings file not found at {team_mappings_path}!")
+                return pd.DataFrame()
+            
+            team_mappings = pd.read_csv(team_mappings_path)
+            logger.info(f"Loaded team mappings with {len(team_mappings)} teams")
+            return team_mappings
+        except Exception as e:
+            logger.error(f"Error loading team mappings: {str(e)}")
+            return pd.DataFrame()
         
     def _normalize_time(self, time_str: str) -> str:
         """Convert various time formats to EST time."""
@@ -47,44 +66,41 @@ class BettingDataMerger:
         return time_str  # Return original if all parsing fails
             
     def _standardize_team_names(self, team_name: str) -> str:
-        """Standardize team names to match our other data."""
-        team_mappings = {
-            # Eastern Conference
-            "Boston": "Boston Celtics",
-            "Brooklyn": "Brooklyn Nets",
-            "New York": "New York Knicks",
-            "Philadelphia": "Philadelphia 76ers",
-            "Toronto": "Toronto Raptors",
-            "Chicago": "Chicago Bulls",
-            "Cleveland": "Cleveland Cavaliers",
-            "Detroit": "Detroit Pistons",
-            "Indiana": "Indiana Pacers",
-            "Milwaukee": "Milwaukee Bucks",
-            "Atlanta": "Atlanta Hawks",
-            "Charlotte": "Charlotte Hornets",
-            "Miami": "Miami Heat",
-            "Orlando": "Orlando Magic",
-            "Washington": "Washington Wizards",
+        """Standardize team names using the centralized team mappings."""
+        if self.team_mappings.empty:
+            logger.error("No team mappings available for standardization")
+            return team_name.strip()
             
-            # Western Conference
-            "Denver": "Denver Nuggets",
-            "Minnesota": "Minnesota Timberwolves",
-            "Oklahoma City": "Oklahoma City Thunder",
-            "Portland": "Portland Trail Blazers",
-            "Utah": "Utah Jazz",
-            "Golden State": "Golden State Warriors",
-            "LA Clippers": "Los Angeles Clippers",
-            "LA Lakers": "Los Angeles Lakers",
-            "Los Angeles": "Los Angeles Lakers",  # Default to Lakers if just "Los Angeles"
-            "Phoenix": "Phoenix Suns",
-            "Sacramento": "Sacramento Kings",
-            "Dallas": "Dallas Mavericks",
-            "Houston": "Houston Rockets",
-            "Memphis": "Memphis Grizzlies",
-            "New Orleans": "New Orleans Pelicans",
-            "San Antonio": "San Antonio Spurs"
-        }
-        return team_mappings.get(team_name.strip(), team_name.strip())
+        # Create mapping dictionaries for different team name formats
+        city_map = dict(zip(self.team_mappings['team_city'], self.team_mappings['FULL_TEAM_NAME']))
+        name_map = dict(zip(self.team_mappings['team_name'], self.team_mappings['FULL_TEAM_NAME']))
+        abbrev_map = dict(zip(self.team_mappings['team_abbrev'], self.team_mappings['FULL_TEAM_NAME']))
+        
+        # Try to match the team name using different formats
+        team_name = team_name.strip()
+        
+        # First try exact match with full team name
+        if team_name in self.team_mappings['FULL_TEAM_NAME'].values:
+            return team_name
+            
+        # Try matching with city
+        if team_name in city_map:
+            return city_map[team_name]
+            
+        # Try matching with team name
+        if team_name in name_map:
+            return name_map[team_name]
+            
+        # Try matching with abbreviation
+        if team_name in abbrev_map:
+            return abbrev_map[team_name]
+            
+        # Special case for LA teams
+        if team_name == "LA":
+            return "Los Angeles Lakers"  # Default to Lakers if just "LA"
+            
+        logger.warning(f"Could not standardize team name: {team_name}")
+        return team_name
             
     def merge_betting_data(self) -> None:
         """Merge all betting data files and standardize columns."""
@@ -132,6 +148,12 @@ class BettingDataMerger:
         # Standardize team names
         betting_df['AWAY_TEAM'] = betting_df['AWAY_TEAM'].apply(self._standardize_team_names)
         betting_df['HOME_TEAM'] = betting_df['HOME_TEAM'].apply(self._standardize_team_names)
+        
+        # Add team IDs
+        if not self.team_mappings.empty:
+            full_name_map = dict(zip(self.team_mappings['FULL_TEAM_NAME'], self.team_mappings['team_id']))
+            betting_df['AWAY_TEAM_ID'] = betting_df['AWAY_TEAM'].map(full_name_map)
+            betting_df['HOME_TEAM_ID'] = betting_df['HOME_TEAM'].map(full_name_map)
         
         # Capitalize all remaining column names
         betting_df.columns = [col.upper() for col in betting_df.columns]
